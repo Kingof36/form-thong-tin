@@ -6,7 +6,7 @@
 <title>Thông tin người tham gia</title>
 <style>
 *{box-sizing:border-box}body{margin:0;font-family:Inter,Arial,sans-serif;background:linear-gradient(135deg,#eef4ff,#f8fbff);color:#172033;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
-.card{width:min(560px,100%);background:#fff;border-radius:24px;padding:32px;box-shadow:0 20px 60px #1d4ed81c}
+.card{width:min(650px,100%);background:#fff;border-radius:24px;padding:32px;box-shadow:0 20px 60px #1d4ed81c}
 h1{margin:0 0 8px;font-size:28px}p{color:#667085;margin:0 0 26px}
 label{display:block;font-weight:700;margin:16px 0 8px}
 input,select{width:100%;padding:14px 15px;border:1px solid #d8dee9;border-radius:12px;font-size:16px;outline:none}
@@ -18,14 +18,16 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .admin{display:none}.top{display:flex;justify-content:space-between;align-items:center;gap:12px}.logout{width:auto;margin:0;padding:10px 14px;background:#475467}
 table{width:100%;border-collapse:collapse;margin-top:20px;font-size:14px}th,td{padding:11px 8px;border-bottom:1px solid #eee;text-align:left}th{background:#f8fafc}
 .actions{display:flex;gap:8px;margin-top:15px}.actions button{margin:0}.secondary{background:#475467}
+.btn-sm{padding:6px 10px;font-size:12px;margin:0;width:auto;border-radius:6px}
+.btn-danger{background:#dc2626}
 @media(max-width:520px){.card{padding:22px}table{font-size:12px}}
 </style>
 </head>
 <body>
 <div class="card">
   <section id="formView">
-    <h1>Thông tin cần nhập</h1>
-    <p>Vui lòng điền chính xác thông tin của bạn.</p>
+    <h1 id="formTitle">Thông tin cần nhập</h1>
+    <p id="formSub">Vui lòng điền chính xác thông tin của bạn.</p>
     <form id="form">
       <label>Họ và tên</label>
       <input id="name" required placeholder="Nhập họ và tên">
@@ -35,7 +37,7 @@ table{width:100%;border-collapse:collapse;margin-top:20px;font-size:14px}th,td{p
         <option value="">-- Chọn size --</option>
         <option>XS</option><option>S</option><option>M</option>
         <option>L</option><option>XL</option><option>2XL</option>
-        <option>3XL</option><option>4XL</option><option>Khác</option>
+        <option>NC1</option><option>NC2</option><option>Khác</option>
       </select>
 
       <label>Chiều cao (cm)</label>
@@ -46,7 +48,7 @@ table{width:100%;border-collapse:collapse;margin-top:20px;font-size:14px}th,td{p
 
       <button id="submitBtn">GỬI THÔNG TIN</button>
       <div id="msg" class="msg"></div>
-      <div class="small">Thông tin sẽ được gửi về hệ thống quản trị.</div>
+      <div class="small">Hệ thống sẽ tự động cập nhật thông tin mới nhất nếu bạn gửi lại.</div>
     </form>
   </section>
 
@@ -58,17 +60,24 @@ table{width:100%;border-collapse:collapse;margin-top:20px;font-size:14px}th,td{p
   </section>
 
   <section id="adminView" class="admin">
-    <div class="top"><div><h1>Quản trị</h1><p>Danh sách thông tin đã nhận</p></div><button class="logout" onclick="logout()">Thoát</button></div>
-    <div class="actions"><button class="secondary" onclick="loadData()">Làm mới</button><button class="secondary" onclick="exportCSV()">Xuất CSV</button></div>
-    <div style="overflow:auto"><table><thead><tr><th>Họ tên</th><th>Size</th><th>Cao</th><th>Nặng</th><th>Thời gian</th></tr></thead><tbody id="rows"></tbody></table></div>
+    <div class="top"><div><h1>Quản trị</h1><p>Danh sách thông tin đã nhận (Cập nhật mới nhất)</p></div><button class="logout" onclick="logout()">Thoát</button></div>
+    <div class="actions">
+      <button class="secondary" onclick="loadData()">Làm mới</button>
+      <button class="secondary" onclick="exportCSV()">Xuất CSV</button>
+      <button onclick="resetFormToCreate()">+ Thêm mới</button>
+    </div>
+    <div style="overflow:auto">
+      <table>
+        <thead><tr><th>Họ tên</th><th>Size</th><th>Cao</th><th>Nặng</th><th>Thời gian</th><th>Thao tác</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
   </section>
 </div>
 
 <script>
 // ===== CẤU HÌNH =====
-// Sau khi triển khai Google Apps Script, dán URL Web App vào đây.
-const API_URL = "https://script.google.com/macros/s/AKfycbwmyltYpXdhBXA30WgIqbzDyfR1PsxGz1t5XtKFswi5bHVSt5zLmrxAwMet1SJLF8jrgA/exec";
-// Mật khẩu admin chỉ là lớp bảo vệ giao diện; dữ liệu thật được bảo vệ ở Apps Script.
+const API_URL = "https://script.google.com/macros/s/AKfycbyzdGn7SRNq8rXYDIRO77KsmMNAYIrkshQ6xwbsQBZ9ggp5SJi3m5LYisKS8N2-_wY4/exec";
 const ADMIN_PASSWORD = "Tuanvy2009@";
 
 const $ = id => document.getElementById(id);
@@ -78,21 +87,19 @@ function showMsg(el,text,ok=false){el.textContent=text;el.className="msg "+(ok?"
 $("form").addEventListener("submit", async e=>{
   e.preventDefault();
   const btn=$("submitBtn"); btn.disabled=true; btn.textContent="ĐANG GỬI...";
-  if(API_URL.includes("DAN_URL")){
-    showMsg($("msg"),"Admin chưa cấu hình máy chủ nhận dữ liệu.");
-    btn.disabled=false;btn.textContent="GỬI THÔNG TIN";return;
-  }
   const data={action:"add",name:$("name").value.trim(),size:$("size").value,height:$("height").value,weight:$("weight").value};
   try{
     const r=await fetch(API_URL,{method:"POST",body:JSON.stringify(data)});
     const j=await r.json();
-    if(j.ok){showMsg($("msg"),"Đã gửi thông tin thành công!",true);$("form").reset();}
-    else showMsg($("msg"),j.error||"Không thể gửi dữ liệu.");
-  }catch(err){showMsg($("msg"),"Không kết nối được máy chủ. Kiểm tra lại link triển khai.");}
+    if(j.ok){
+      showMsg($("msg"),"Đã lưu thông tin thành công!",true);
+      $("form").reset();
+      if(sessionStorage.admin) { loadData(); }
+    } else showMsg($("msg"),j.error||"Không thể gửi dữ liệu.");
+  }catch(err){showMsg($("msg"),"Không kết nối được máy chủ.");}
   btn.disabled=false;btn.textContent="GỬI THÔNG TIN";
 });
 
-// Mở trang admin bằng URL: ?admin=1
 if(new URLSearchParams(location.search).get("admin")==="1"){
   $("formView").style.display="none"; $("loginView").style.display="block";
 }
@@ -102,17 +109,58 @@ function login(){
   }else showMsg($("loginMsg"),"Sai mật khẩu admin.");
 }
 function logout(){sessionStorage.removeItem("admin");location.href=location.pathname}
+
 async function loadData(){
   if(!sessionStorage.admin)return;
-  if(API_URL.includes("DAN_URL")){alert("Chưa cấu hình API.");return}
   try{
     const r=await fetch(API_URL+"?action=list&key="+encodeURIComponent(ADMIN_PASSWORD));
     const j=await r.json();
     if(!j.ok)throw Error(j.error);
-    $("rows").innerHTML=j.data.map(x=>`<tr><td>${esc(x.name)}</td><td>${esc(x.size)}</td><td>${esc(x.height)} cm</td><td>${esc(x.weight)} kg</td><td>${esc(x.time)}</td></tr>`).join("");
     window.adminData=j.data;
+    $("rows").innerHTML=j.data.map((x, idx)=>`
+      <tr>
+        <td>${esc(x.name)}</td>
+        <td>${esc(x.size)}</td>
+        <td>${esc(x.height)} cm</td>
+        <td>${esc(x.weight)} kg</td>
+        <td>${esc(x.time)}</td>
+        <td>
+          <button class="btn-sm secondary" onclick="editRow(${idx})">Sửa</button>
+          <button class="btn-sm btn-danger" onclick="deleteRow('${esc(x.name)}')">Xóa</button>
+        </td>
+      </tr>`).join("");
   }catch(e){alert("Không tải được dữ liệu: "+e.message)}
 }
+
+function editRow(idx){
+  const item = window.adminData[idx];
+  $("name").value = item.name;
+  $("name").readOnly = true; // Khóa không cho sửa tên chính khi đang sửa nhanh
+  $("size").value = item.size;
+  $("height").value = item.height;
+  $("weight").value = item.weight;
+  $("formView").style.display = "block";
+  $("adminView").style.display = "none";
+  $("formTitle").textContent = "Chỉnh sửa thông tin: " + item.name;
+}
+
+function resetFormToCreate(){
+  $("form").reset();
+  $("name").readOnly = false;
+  $("formTitle").textContent = "Thông tin cần nhập";
+  $("formView").style.display = "block";
+  $("adminView").style.display = "none";
+}
+
+async function deleteRow(name){
+  if(!confirm("Bạn có chắc chắn muốn xóa thông tin của " + name + " không?")) return;
+  try{
+    const r = await fetch(API_URL, {method: "POST", body: JSON.stringify({action: "delete", name: name, key: ADMIN_PASSWORD})});
+    const j = await r.json();
+    if(j.ok) { loadData(); } else { alert(j.error); }
+  }catch(err){alert("Lỗi kết nối khi xóa.");}
+}
+
 function exportCSV(){
   const data=window.adminData||[]; if(!data.length)return alert("Chưa có dữ liệu.");
   const rows=[["Họ và tên","Size","Chiều cao","Cân nặng","Thời gian"],...data.map(x=>[x.name,x.size,x.height,x.weight,x.time])];
